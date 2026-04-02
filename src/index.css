@@ -1,0 +1,68 @@
+/* ── Reset & Global ──────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+  min-height: 100dvh;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Mobile-first touch targets ─────────────────────────────────────────── */
+@media (max-width: 48em) {
+  /* Ensure buttons and interactive elements have at least 44px touch target */
+  .mantine-Button-root,
+  .mantine-ActionIcon-root,
+  .mantine-Chip-root {
+    min-height: 44px;
+  }
+
+  .mantine-TextInput-input,
+  .mantine-PasswordInput-input,
+  .mantine-Textarea-input,
+  .mantine-NumberInput-input,
+  .mantine-Select-input {
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Drawer takes full width on mobile */
+  .mantine-Drawer-content {
+    max-width: 100vw !important;
+  }
+}
+
+/* ── Safe area for notch/home-indicator devices ─────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ── Smooth scrolling ───────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
