@@ -100,7 +100,10 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
     const cep = form.values.zipCode?.replace(/\D/g, '') ?? ''
     if (cep.length !== 8) return
     const address = await fetchAddress(cep)
-    if (!address) return
+    if (!address) {
+      form.setFieldError('zipCode', 'CEP não encontrado')
+      return
+    }
     form.setValues({
       street: address.logradouro,
       neighborhood: address.bairro,
