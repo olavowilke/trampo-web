@@ -43,7 +43,9 @@ export function ServicesPage() {
   const [deleteOpened, deleteHandlers] = useDisclosure(false)
   const [detailOpened, detailHandlers] = useDisclosure(false)
 
-  const [selectedService, setSelectedService] = useState<Service | null>(null)
+  // Store only the ID so the drawer always receives live data from React Query,
+  // not a stale snapshot captured at click time.
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null)
 
   const { data, isLoading, isError } = useServices(clientId, {
@@ -52,8 +54,10 @@ export function ServicesPage() {
     size: 20,
   })
 
+  const selectedService = data?.content.find((s) => s.id === selectedServiceId) ?? null
+
   function handleOpen(service: Service) {
-    setSelectedService(service)
+    setSelectedServiceId(service.id)
     detailHandlers.open()
   }
 

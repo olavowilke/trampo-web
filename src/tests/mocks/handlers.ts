@@ -126,6 +126,9 @@ export const handlers = [
 
   http.patch(`${BASE}/api/clients/:clientId/services/:serviceId/status`, async ({ request, params }) => {
     const body = (await request.json()) as Record<string, unknown>
+    // Echo body fields back (mirrors backend behaviour: fields sent in the request
+    // are persisted and returned in the response). visitDate/visitNotes included.
+    const { targetStatus, ...rest } = body
     return HttpResponse.json({
       id: params.serviceId,
       clientId: params.clientId,
@@ -133,8 +136,8 @@ export const handlers = [
       description: 'Troca de disjuntor',
       nfIssued: false,
       createdAt: '2024-01-01T00:00:00',
-      ...body,
-      status: body.targetStatus,
+      ...rest,
+      status: targetStatus,
     })
   }),
 

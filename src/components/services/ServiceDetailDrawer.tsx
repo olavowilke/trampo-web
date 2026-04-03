@@ -12,7 +12,7 @@ import {
   Badge,
   Stepper,
 } from '@mantine/core'
-import { DatePickerInput, TimeInput } from '@mantine/dates'
+import { DateTimePicker, DatePickerInput } from '@mantine/dates'
 import { IconArrowRight, IconArrowLeft } from '@tabler/icons-react'
 import dayjs from 'dayjs'
 import type { Service } from '../../types'
@@ -46,14 +46,10 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
   const [quoteValue, setQuoteValue] = useState<number | string>('')
   const [quoteNotes, setQuoteNotes] = useState('')
 
-  // visitDate is LocalDateTime — store date and time separately for the TimeInput
-  const [visitDatePart, setVisitDatePart] = useState<Date | null>(null)
-  const [visitTimePart, setVisitTimePart] = useState('')
+  // visitDate and scheduledAt are LocalDateTime — DateTimePicker gives calendar + time picker
+  const [visitDate, setVisitDate] = useState<Date | null>(null)
   const [visitNotes, setVisitNotes] = useState('')
-
-  // scheduledAt is LocalDateTime — same split
-  const [scheduledAtDatePart, setScheduledAtDatePart] = useState<Date | null>(null)
-  const [scheduledAtTimePart, setScheduledAtTimePart] = useState('')
+  const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
 
   // completedAt and paidAt are LocalDate (date-only) on the backend
   const [completedAt, setCompletedAt] = useState<Date | null>(null)
@@ -62,38 +58,21 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
 
   // Re-populate fields whenever the drawer opens or the service changes.
-  // `opened` is intentionally in deps: Mantine Drawer keeps children mounted
-  // (not unmounted on close), so without it the effect would not re-fire when
-  // the drawer re-opens with the same service reference.
+  // `opened` is intentionally in deps: the drawer may keep children mounted
+  // between opens, so without it the effect would not re-fire when the drawer
+  // re-opens carrying the same service reference (before React Query refetches).
   useEffect(() => {
     if (!service || !opened) return
 
     setQuoteValue(service.quoteValue ?? '')
     setQuoteNotes(service.quoteNotes ?? '')
+    setVisitDate(service.visitDate ? dayjs(service.visitDate).toDate() : null)
     setVisitNotes(service.visitNotes ?? '')
-    setCompletionNotes(service.completionNotes ?? '')
-    setPaymentMethod(service.paymentMethod ?? null)
-
-    if (service.visitDate) {
-      const d = dayjs(service.visitDate)
-      setVisitDatePart(d.toDate())
-      setVisitTimePart(d.format('HH:mm'))
-    } else {
-      setVisitDatePart(null)
-      setVisitTimePart('')
-    }
-
-    if (service.scheduledAt) {
-      const d = dayjs(service.scheduledAt)
-      setScheduledAtDatePart(d.toDate())
-      setScheduledAtTimePart(d.format('HH:mm'))
-    } else {
-      setScheduledAtDatePart(null)
-      setScheduledAtTimePart('')
-    }
-
+    setScheduledAt(service.scheduledAt ? dayjs(service.scheduledAt).toDate() : null)
     setCompletedAt(service.completedAt ? dayjs(service.completedAt).toDate() : null)
+    setCompletionNotes(service.completionNotes ?? '')
     setPaidAt(service.paidAt ? dayjs(service.paidAt).toDate() : null)
+    setPaymentMethod(service.paymentMethod ?? null)
   }, [service, opened])
 
   if (!service) return null
@@ -104,21 +83,15 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
   const canRetreat = currentIdx > 0 && !isTerminal
 
   function buildPayload(targetStatus: ServiceStatus): UpdateStatusData {
-    const visitDateISO = visitDatePart
-      ? `${dayjs(visitDatePart).format('YYYY-MM-DD')}T${visitTimePart || '00:00'}:00`
-      : undefined
-
-    const scheduledAtISO = scheduledAtDatePart
-      ? `${dayjs(scheduledAtDatePart).format('YYYY-MM-DD')}T${scheduledAtTimePart || '00:00'}:00`
-      : undefined
-
     return {
       targetStatus,
       ...(typeof quoteValue === 'number' ? { quoteValue } : {}),
       ...(quoteNotes ? { quoteNotes } : {}),
-      ...(visitDateISO ? { visitDate: visitDateISO } : {}),
+      // LocalDateTime fields: full ISO-like string without timezone
+      ...(visitDate ? { visitDate: dayjs(visitDate).format('YYYY-MM-DDTHH:mm:ss') } : {}),
       ...(visitNotes ? { visitNotes } : {}),
-      ...(scheduledAtISO ? { scheduledAt: scheduledAtISO } : {}),
+      ...(scheduledAt ? { scheduledAt: dayjs(scheduledAt).format('YYYY-MM-DDTHH:mm:ss') } : {}),
+      // LocalDate fields: date-only string
       ...(completedAt ? { completedAt: dayjs(completedAt).format('YYYY-MM-DD') } : {}),
       ...(completionNotes ? { completionNotes } : {}),
       ...(paidAt ? { paidAt: dayjs(paidAt).format('YYYY-MM-DD') } : {}),
@@ -130,7 +103,7 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
     const nextStatus = SERVICE_STATUS_ORDER[currentIdx + 1]
     if (!nextStatus) return
 
-    if (nextStatus === ServiceStatus.QUOTE_PENDING && !visitDatePart) {
+    if (nextStatus === ServiceStatus.QUOTE_PENDING && !visitDate) {
       notifications.show({ title: 'Campo obrigatório', message: 'Informe a data da visita', color: 'orange' })
       return
     }
@@ -138,7 +111,7 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
       notifications.show({ title: 'Campo obrigatório', message: 'Informe o valor do orçamento', color: 'orange' })
       return
     }
-    if (nextStatus === ServiceStatus.EXECUTION_SCHEDULED && !scheduledAtDatePart) {
+    if (nextStatus === ServiceStatus.EXECUTION_SCHEDULED && !scheduledAt) {
       notifications.show({ title: 'Campo obrigatório', message: 'Informe a data agendada', color: 'orange' })
       return
     }
@@ -228,22 +201,13 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
         {/* Visita Técnica fields — always visible (idx >= 0) */}
         {currentIdx >= 0 && (
           <>
-            <Group grow align="flex-end">
-              <DatePickerInput
-                label="Data da visita"
-                placeholder="Selecione"
-                value={visitDatePart}
-                onChange={setVisitDatePart}
-                clearable
-              />
-              <TimeInput
-                label="Hora da visita"
-                value={visitTimePart}
-                onChange={(e) => setVisitTimePart(e.currentTarget.value)}
-                disabled={!visitDatePart}
-                style={{ maxWidth: 140 }}
-              />
-            </Group>
+            <DateTimePicker
+              label="Data da visita"
+              placeholder="Selecione"
+              value={visitDate}
+              onChange={setVisitDate}
+              clearable
+            />
             <Textarea
               label="Notas da visita"
               placeholder="Observações (opcional)"
@@ -279,25 +243,16 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
           </>
         )}
 
-        {/* Agendamento fields — from QUOTE_APPROVED (idx >= 2) so the user
+        {/* Agendamento field — from QUOTE_APPROVED (idx >= 2) so the user
             can fill the date before advancing to EXECUTION_SCHEDULED */}
         {currentIdx >= 2 && (
-          <Group grow align="flex-end">
-            <DatePickerInput
-              label="Data agendada"
-              placeholder="Selecione"
-              value={scheduledAtDatePart}
-              onChange={setScheduledAtDatePart}
-              clearable
-            />
-            <TimeInput
-              label="Hora agendada"
-              value={scheduledAtTimePart}
-              onChange={(e) => setScheduledAtTimePart(e.currentTarget.value)}
-              disabled={!scheduledAtDatePart}
-              style={{ maxWidth: 140 }}
-            />
-          </Group>
+          <DateTimePicker
+            label="Data agendada"
+            placeholder="Selecione"
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            clearable
+          />
         )}
 
         {/* Conclusão fields — from EXECUTION_SCHEDULED (idx >= 3) */}
