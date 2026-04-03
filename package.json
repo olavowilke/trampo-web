@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ci": "vitest run --reporter=verbose"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -26,10 +28,17 @@
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.72.0",
     "react-router-dom": "^6.30.3",
-    "zod": "^4.3.6"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitest/coverage-v8": "^2.1.0",
+    "jsdom": "^25.0.0",
+    "msw": "^2.4.0",
+    "vitest": "^2.1.0",
     "@tanstack/react-query-devtools": "^5.96.1",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",

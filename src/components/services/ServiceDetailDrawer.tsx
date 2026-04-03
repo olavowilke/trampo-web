@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
   Drawer,
-  Title,
-  Stepper,
   Stack,
   Text,
   Button,
@@ -12,9 +10,11 @@ import {
   Select,
   Divider,
   Badge,
+  Stepper,
 } from '@mantine/core'
-import { DateTimePicker } from '@mantine/dates'
+import { DatePickerInput, TimeInput } from '@mantine/dates'
 import { IconArrowRight, IconArrowLeft } from '@tabler/icons-react'
+import dayjs from 'dayjs'
 import type { Service } from '../../types'
 import {
   ServiceStatus,
@@ -43,30 +43,58 @@ function statusIndex(status: ServiceStatus): number {
 export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Props) {
   const updateStatus = useUpdateServiceStatus(clientId)
 
-  // Local form state for transition fields
   const [quoteValue, setQuoteValue] = useState<number | string>('')
   const [quoteNotes, setQuoteNotes] = useState('')
-  const [visitDate, setVisitDate] = useState<Date | null>(null)
+
+  // visitDate is LocalDateTime — store date and time separately for the TimeInput
+  const [visitDatePart, setVisitDatePart] = useState<Date | null>(null)
+  const [visitTimePart, setVisitTimePart] = useState('')
   const [visitNotes, setVisitNotes] = useState('')
-  const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
+
+  // scheduledAt is LocalDateTime — same split
+  const [scheduledAtDatePart, setScheduledAtDatePart] = useState<Date | null>(null)
+  const [scheduledAtTimePart, setScheduledAtTimePart] = useState('')
+
+  // completedAt and paidAt are LocalDate (date-only) on the backend
   const [completedAt, setCompletedAt] = useState<Date | null>(null)
   const [completionNotes, setCompletionNotes] = useState('')
   const [paidAt, setPaidAt] = useState<Date | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
 
-  // Reset fields when service changes
+  // Re-populate fields whenever the drawer opens or the service changes.
+  // `opened` is intentionally in deps: Mantine Drawer keeps children mounted
+  // (not unmounted on close), so without it the effect would not re-fire when
+  // the drawer re-opens with the same service reference.
   useEffect(() => {
-    if (!service) return
+    if (!service || !opened) return
+
     setQuoteValue(service.quoteValue ?? '')
     setQuoteNotes(service.quoteNotes ?? '')
-    setVisitDate(service.visitDate ? new Date(service.visitDate) : null)
     setVisitNotes(service.visitNotes ?? '')
-    setScheduledAt(service.scheduledAt ? new Date(service.scheduledAt) : null)
-    setCompletedAt(service.completedAt ? new Date(service.completedAt) : null)
     setCompletionNotes(service.completionNotes ?? '')
-    setPaidAt(service.paidAt ? new Date(service.paidAt) : null)
     setPaymentMethod(service.paymentMethod ?? null)
-  }, [service])
+
+    if (service.visitDate) {
+      const d = dayjs(service.visitDate)
+      setVisitDatePart(d.toDate())
+      setVisitTimePart(d.format('HH:mm'))
+    } else {
+      setVisitDatePart(null)
+      setVisitTimePart('')
+    }
+
+    if (service.scheduledAt) {
+      const d = dayjs(service.scheduledAt)
+      setScheduledAtDatePart(d.toDate())
+      setScheduledAtTimePart(d.format('HH:mm'))
+    } else {
+      setScheduledAtDatePart(null)
+      setScheduledAtTimePart('')
+    }
+
+    setCompletedAt(service.completedAt ? dayjs(service.completedAt).toDate() : null)
+    setPaidAt(service.paidAt ? dayjs(service.paidAt).toDate() : null)
+  }, [service, opened])
 
   if (!service) return null
 
@@ -76,16 +104,24 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
   const canRetreat = currentIdx > 0 && !isTerminal
 
   function buildPayload(targetStatus: ServiceStatus): UpdateStatusData {
+    const visitDateISO = visitDatePart
+      ? `${dayjs(visitDatePart).format('YYYY-MM-DD')}T${visitTimePart || '00:00'}:00`
+      : undefined
+
+    const scheduledAtISO = scheduledAtDatePart
+      ? `${dayjs(scheduledAtDatePart).format('YYYY-MM-DD')}T${scheduledAtTimePart || '00:00'}:00`
+      : undefined
+
     return {
       targetStatus,
       ...(typeof quoteValue === 'number' ? { quoteValue } : {}),
       ...(quoteNotes ? { quoteNotes } : {}),
-      ...(visitDate ? { visitDate: visitDate.toISOString() } : {}),
+      ...(visitDateISO ? { visitDate: visitDateISO } : {}),
       ...(visitNotes ? { visitNotes } : {}),
-      ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
-      ...(completedAt ? { completedAt: completedAt.toISOString() } : {}),
+      ...(scheduledAtISO ? { scheduledAt: scheduledAtISO } : {}),
+      ...(completedAt ? { completedAt: dayjs(completedAt).format('YYYY-MM-DD') } : {}),
       ...(completionNotes ? { completionNotes } : {}),
-      ...(paidAt ? { paidAt: paidAt.toISOString() } : {}),
+      ...(paidAt ? { paidAt: dayjs(paidAt).format('YYYY-MM-DD') } : {}),
       ...(paymentMethod ? { paymentMethod } : {}),
     }
   }
@@ -94,8 +130,7 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
     const nextStatus = SERVICE_STATUS_ORDER[currentIdx + 1]
     if (!nextStatus) return
 
-    // Validate required fields
-    if (nextStatus === ServiceStatus.QUOTE_PENDING && !visitDate) {
+    if (nextStatus === ServiceStatus.QUOTE_PENDING && !visitDatePart) {
       notifications.show({ title: 'Campo obrigatório', message: 'Informe a data da visita', color: 'orange' })
       return
     }
@@ -103,7 +138,7 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
       notifications.show({ title: 'Campo obrigatório', message: 'Informe o valor do orçamento', color: 'orange' })
       return
     }
-    if (nextStatus === ServiceStatus.EXECUTION_SCHEDULED && !scheduledAt) {
+    if (nextStatus === ServiceStatus.EXECUTION_SCHEDULED && !scheduledAtDatePart) {
       notifications.show({ title: 'Campo obrigatório', message: 'Informe a data agendada', color: 'orange' })
       return
     }
@@ -161,7 +196,7 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
       onClose={onClose}
       position="right"
       size="md"
-      title={<Title order={4}>Detalhes do serviço</Title>}
+      title={<Text fw={700} size="lg" component="span">Detalhes do serviço</Text>}
     >
       <Stack gap="md">
         {/* Description */}
@@ -188,19 +223,27 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
 
         <Divider />
 
-        {/* Context fields based on current and next status */}
-        <Title order={5}>Dados do serviço</Title>
+        <Text fw={600}>Dados do serviço</Text>
 
-        {/* Visita Técnica fields */}
+        {/* Visita Técnica fields — always visible (idx >= 0) */}
         {currentIdx >= 0 && (
           <>
-            <DateTimePicker
-              label="Data da visita"
-              placeholder="Selecione"
-              value={visitDate}
-              onChange={setVisitDate}
-              clearable
-            />
+            <Group grow align="flex-end">
+              <DatePickerInput
+                label="Data da visita"
+                placeholder="Selecione"
+                value={visitDatePart}
+                onChange={setVisitDatePart}
+                clearable
+              />
+              <TimeInput
+                label="Hora da visita"
+                value={visitTimePart}
+                onChange={(e) => setVisitTimePart(e.currentTarget.value)}
+                disabled={!visitDatePart}
+                style={{ maxWidth: 140 }}
+              />
+            </Group>
             <Textarea
               label="Notas da visita"
               placeholder="Observações (opcional)"
@@ -212,7 +255,7 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
           </>
         )}
 
-        {/* Orçamento fields */}
+        {/* Orçamento fields — from QUOTE_PENDING (idx >= 1) */}
         {currentIdx >= 1 && (
           <>
             <NumberInput
@@ -236,21 +279,31 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
           </>
         )}
 
-        {/* Agendamento field */}
-        {currentIdx >= 3 && (
-          <DateTimePicker
-            label="Data agendada"
-            placeholder="Selecione"
-            value={scheduledAt}
-            onChange={setScheduledAt}
-            clearable
-          />
+        {/* Agendamento fields — from QUOTE_APPROVED (idx >= 2) so the user
+            can fill the date before advancing to EXECUTION_SCHEDULED */}
+        {currentIdx >= 2 && (
+          <Group grow align="flex-end">
+            <DatePickerInput
+              label="Data agendada"
+              placeholder="Selecione"
+              value={scheduledAtDatePart}
+              onChange={setScheduledAtDatePart}
+              clearable
+            />
+            <TimeInput
+              label="Hora agendada"
+              value={scheduledAtTimePart}
+              onChange={(e) => setScheduledAtTimePart(e.currentTarget.value)}
+              disabled={!scheduledAtDatePart}
+              style={{ maxWidth: 140 }}
+            />
+          </Group>
         )}
 
-        {/* Conclusão fields */}
-        {currentIdx >= 4 && (
+        {/* Conclusão fields — from EXECUTION_SCHEDULED (idx >= 3) */}
+        {currentIdx >= 3 && (
           <>
-            <DateTimePicker
+            <DatePickerInput
               label="Data de conclusão"
               placeholder="Selecione"
               value={completedAt}
@@ -268,10 +321,10 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
           </>
         )}
 
-        {/* Pagamento fields */}
-        {currentIdx >= 5 && (
+        {/* Pagamento fields — from EXECUTION_COMPLETED (idx >= 4) */}
+        {currentIdx >= 4 && (
           <>
-            <DateTimePicker
+            <DatePickerInput
               label="Data do pagamento"
               placeholder="Selecione"
               value={paidAt}
@@ -300,9 +353,13 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
           </Text>
         )}
 
-        {/* NF Upload — disponível em qualquer status */}
-        <Divider label="Nota Fiscal" labelPosition="left" />
-        <NfUploadSection clientId={clientId} service={service} />
+        {/* NF Upload — only from EXECUTION_COMPLETED (idx >= 4) */}
+        {currentIdx >= 4 && (
+          <>
+            <Divider label="Nota Fiscal" labelPosition="left" />
+            <NfUploadSection clientId={clientId} service={service} />
+          </>
+        )}
 
         <Divider />
 
