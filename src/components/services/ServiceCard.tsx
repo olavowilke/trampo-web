@@ -1,5 +1,5 @@
-import { Card, Text, Group, Badge, ActionIcon, Stack, Menu, Anchor } from '@mantine/core'
-import { IconEdit, IconTrash, IconDots, IconCurrencyReal } from '@tabler/icons-react'
+import { Card, Text, Group, Badge, ActionIcon, Stack, Menu } from '@mantine/core'
+import { IconEdit, IconTrash, IconDots, IconCurrencyReal, IconFileTypePdf } from '@tabler/icons-react'
 import type { Service } from '../../types'
 import { ServiceStatusLabel, ServiceStatusColor } from '../../types'
 import { formatCurrency, formatDate } from '../../utils/formatters'
@@ -62,15 +62,10 @@ export function ServiceCard({ service, onOpen, onDelete }: Props) {
           )}
 
           {service.nfIssued && (
-            <Anchor
-              size="xs"
-              href={service.nfFileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Ver NF
-            </Anchor>
+            <Group gap={4}>
+              <IconFileTypePdf size={13} color="red" />
+              <Text size="xs" c="dimmed">NF anexada</Text>
+            </Group>
           )}
         </Stack>
 
