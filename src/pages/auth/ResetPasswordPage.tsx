@@ -65,7 +65,7 @@ export function ResetPasswordPage() {
     <Center mih="100dvh" px="md">
       <Box w="100%" maw={400}>
         <Title ta="center" mb={4}>
-          Trampo
+          Trampo(Beta)
         </Title>
         <Text ta="center" c="dimmed" mb="xl">
           Redefinir senha

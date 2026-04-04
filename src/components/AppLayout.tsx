@@ -11,7 +11,7 @@ export function AppLayout() {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Title order={3} c="blue">
-            Trampo
+            Trampo(Beta)
           </Title>
 
           <Menu position="bottom-end" withinPortal>
