@@ -38,7 +38,7 @@ export function LoginPage() {
           Trampo
         </Title>
         <Text ta="center" c="dimmed" mb="xl">
-          Gestão para autônomos
+          Gestão facilitada para autônomos
         </Text>
 
         <Paper withBorder shadow="md" p="xl" radius="md">

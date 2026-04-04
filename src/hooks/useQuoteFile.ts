@@ -8,13 +8,13 @@ function extractMessage(error: AxiosError<ApiError>, fallback: string): string {
   return error.response?.data?.message ?? fallback
 }
 
-export function useUploadNf(clientId: string) {
+export function useUploadQuoteFile(clientId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ serviceId, file }: { serviceId: string; file: File }) => {
       // Passo 1: obter signed URL de escrita do backend
       const { data: { uploadUrl } } = await api.get<{ uploadUrl: string; objectName: string }>(
-        `/api/clients/${clientId}/services/${serviceId}/nf/upload-url`
+        `/api/clients/${clientId}/services/${serviceId}/quote-file/upload-url`
       )
 
       // Passo 2: upload direto para o GCS (sem Authorization — auth está na URL)
@@ -28,16 +28,18 @@ export function useUploadNf(clientId: string) {
       }
 
       // Passo 3: confirmar upload no backend
-      const { data } = await api.post(`/api/clients/${clientId}/services/${serviceId}/nf/confirm`)
+      const { data } = await api.post(
+        `/api/clients/${clientId}/services/${serviceId}/quote-file/confirm`
+      )
       return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['services', clientId] })
-      notifications.show({ title: 'NF enviada', message: '', color: 'green' })
+      notifications.show({ title: 'PDF de orçamento enviado', message: '', color: 'green' })
     },
     onError: () => {
       notifications.show({
-        title: 'Erro ao enviar NF',
+        title: 'Erro ao enviar PDF',
         message: 'Verifique se o arquivo é um PDF válido (máx. 10MB)',
         color: 'red',
       })
@@ -45,30 +47,32 @@ export function useUploadNf(clientId: string) {
   })
 }
 
-export function useDeleteNf(clientId: string) {
+export function useDeleteQuoteFile(clientId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (serviceId: string) =>
-      api.delete(`/api/clients/${clientId}/services/${serviceId}/nf`).then((r) => r.data),
+      api
+        .delete(`/api/clients/${clientId}/services/${serviceId}/quote-file`)
+        .then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['services', clientId] })
-      notifications.show({ title: 'NF removida', message: '', color: 'green' })
+      notifications.show({ title: 'PDF de orçamento removido', message: '', color: 'green' })
     },
     onError: (error: AxiosError<ApiError>) => {
       notifications.show({
-        title: 'Erro ao remover NF',
-        message: extractMessage(error, 'Não foi possível remover a NF'),
+        title: 'Erro ao remover PDF',
+        message: extractMessage(error, 'Não foi possível remover o PDF de orçamento'),
         color: 'red',
       })
     },
   })
 }
 
-export function useDownloadNfUrl(clientId: string) {
+export function useDownloadQuoteFileUrl(clientId: string) {
   return useMutation({
     mutationFn: (serviceId: string) =>
       api
-        .get<NfUrlResponse>(`/api/clients/${clientId}/services/${serviceId}/nf`)
+        .get<NfUrlResponse>(`/api/clients/${clientId}/services/${serviceId}/quote-file`)
         .then((r) => r.data),
   })
 }

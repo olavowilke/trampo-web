@@ -25,6 +25,7 @@ export interface ClientFormData {
   neighborhood?: string
   city?: string
   state?: string
+  isRecurring?: boolean
 }
 
 // ── Queries ─────────────────────────────────────────────────────────────────

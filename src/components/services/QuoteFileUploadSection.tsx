@@ -2,7 +2,7 @@ import { Group, Text, Stack, ActionIcon, Tooltip, Button } from '@mantine/core'
 import { Dropzone, MIME_TYPES } from '@mantine/dropzone'
 import { IconUpload, IconFileTypePdf, IconX, IconDownload, IconTrash } from '@tabler/icons-react'
 import type { Service } from '../../types'
-import { useUploadNf, useDeleteNf, useDownloadNfUrl } from '../../hooks/useNf'
+import { useUploadQuoteFile, useDeleteQuoteFile, useDownloadQuoteFileUrl } from '../../hooks/useQuoteFile'
 
 interface Props {
   clientId: string
@@ -11,15 +11,15 @@ interface Props {
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
-export function NfUploadSection({ clientId, service }: Props) {
-  const uploadNf = useUploadNf(clientId)
-  const deleteNf = useDeleteNf(clientId)
-  const downloadUrl = useDownloadNfUrl(clientId)
+export function QuoteFileUploadSection({ clientId, service }: Props) {
+  const uploadQuoteFile = useUploadQuoteFile(clientId)
+  const deleteQuoteFile = useDeleteQuoteFile(clientId)
+  const downloadUrl = useDownloadQuoteFileUrl(clientId)
 
   function handleDrop(files: File[]) {
     const file = files[0]
     if (!file) return
-    uploadNf.mutate({ serviceId: service.id, file })
+    uploadQuoteFile.mutate({ serviceId: service.id, file })
   }
 
   function handleDownload() {
@@ -28,13 +28,13 @@ export function NfUploadSection({ clientId, service }: Props) {
     })
   }
 
-  if (service.nfIssued && service.nfFileUrl) {
+  if (service.quoteFileUrl) {
     return (
       <Stack gap="xs">
         <Group gap="xs">
           <IconFileTypePdf size={20} color="red" />
           <Text size="sm" fw={500}>
-            NF anexada
+            PDF de orçamento anexado
           </Text>
         </Group>
 
@@ -46,16 +46,16 @@ export function NfUploadSection({ clientId, service }: Props) {
             onClick={handleDownload}
             loading={downloadUrl.isPending}
           >
-            Baixar NF
+            Baixar orçamento
           </Button>
 
-          <Tooltip label="Remover NF">
+          <Tooltip label="Remover PDF">
             <ActionIcon
               variant="subtle"
               color="red"
               size="sm"
-              loading={deleteNf.isPending}
-              onClick={() => deleteNf.mutate(service.id)}
+              loading={deleteQuoteFile.isPending}
+              onClick={() => deleteQuoteFile.mutate(service.id)}
             >
               <IconTrash size={14} />
             </ActionIcon>
@@ -63,20 +63,20 @@ export function NfUploadSection({ clientId, service }: Props) {
         </Group>
 
         <Text size="xs" c="dimmed">
-          Envie outro arquivo para substituir a NF atual.
+          Envie outro arquivo para substituir o PDF atual.
         </Text>
         <Dropzone
           onDrop={handleDrop}
           accept={[MIME_TYPES.pdf]}
           maxSize={MAX_SIZE}
           maxFiles={1}
-          loading={uploadNf.isPending}
+          loading={uploadQuoteFile.isPending}
           p="xs"
         >
           <Group justify="center" gap="xs">
             <IconUpload size={16} />
             <Text size="xs" c="dimmed">
-              Substituir NF (PDF, max 10MB)
+              Substituir PDF (max 10MB)
             </Text>
           </Group>
         </Dropzone>
@@ -90,7 +90,7 @@ export function NfUploadSection({ clientId, service }: Props) {
       accept={[MIME_TYPES.pdf]}
       maxSize={MAX_SIZE}
       maxFiles={1}
-      loading={uploadNf.isPending}
+      loading={uploadQuoteFile.isPending}
     >
       <Stack align="center" gap="xs" py="md">
         <Dropzone.Accept>
@@ -104,7 +104,7 @@ export function NfUploadSection({ clientId, service }: Props) {
         </Dropzone.Idle>
 
         <Text size="sm" c="dimmed" ta="center">
-          Arraste o PDF da NF aqui ou clique para selecionar
+          Arraste o PDF do orçamento aqui ou clique para selecionar
         </Text>
         <Text size="xs" c="dimmed">
           PDF, máximo 10MB

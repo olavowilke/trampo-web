@@ -28,6 +28,7 @@ import { useUpdateServiceStatus, type UpdateStatusData } from '../../hooks/useSe
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
 import { notifications } from '@mantine/notifications'
 import { NfUploadSection } from './NfUploadSection'
+import { QuoteFileUploadSection } from './QuoteFileUploadSection'
 
 interface Props {
   opened: boolean
@@ -102,27 +103,6 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
   function handleAdvance() {
     const nextStatus = SERVICE_STATUS_ORDER[currentIdx + 1]
     if (!nextStatus) return
-
-    if (nextStatus === ServiceStatus.QUOTE_PENDING && !visitDate) {
-      notifications.show({ title: 'Campo obrigatório', message: 'Informe a data da visita', color: 'orange' })
-      return
-    }
-    if (nextStatus === ServiceStatus.QUOTE_APPROVED && (typeof quoteValue !== 'number' || quoteValue <= 0)) {
-      notifications.show({ title: 'Campo obrigatório', message: 'Informe o valor do orçamento', color: 'orange' })
-      return
-    }
-    if (nextStatus === ServiceStatus.EXECUTION_SCHEDULED && !scheduledAt) {
-      notifications.show({ title: 'Campo obrigatório', message: 'Informe a data agendada', color: 'orange' })
-      return
-    }
-    if (nextStatus === ServiceStatus.EXECUTION_COMPLETED && !completedAt) {
-      notifications.show({ title: 'Campo obrigatório', message: 'Informe a data de conclusão', color: 'orange' })
-      return
-    }
-    if (nextStatus === ServiceStatus.PAID && (!paidAt || !paymentMethod)) {
-      notifications.show({ title: 'Campos obrigatórios', message: 'Informe a data e o método de pagamento', color: 'orange' })
-      return
-    }
 
     updateStatus.mutate(
       { serviceId: service!.id, data: buildPayload(nextStatus) },
@@ -240,6 +220,8 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
               value={quoteNotes}
               onChange={(e) => setQuoteNotes(e.currentTarget.value)}
             />
+            <Divider label="PDF do Orçamento" labelPosition="left" />
+            <QuoteFileUploadSection clientId={clientId} service={service} />
           </>
         )}
 

@@ -30,7 +30,12 @@ export function ClientCard({ client, onEdit, onDelete }: Props) {
             </Text>
             {client.activeServicesCount > 0 && (
               <Badge size="sm" variant="light" color="blue">
-                {client.activeServicesCount} serviço{client.activeServicesCount > 1 ? 's' : ''}
+                {client.activeServicesCount} serviço ativo{client.activeServicesCount > 1 ? 's' : ''}
+              </Badge>
+            )}
+            {client.isRecurring && (
+              <Badge size="sm" variant="light" color="teal">
+                Recorrente
               </Badge>
             )}
           </Group>

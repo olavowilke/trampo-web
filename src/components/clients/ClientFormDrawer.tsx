@@ -9,6 +9,7 @@ import {
   Divider,
   Loader,
   Text,
+  Switch,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -34,6 +35,7 @@ const schema = z.object({
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  isRecurring: z.boolean().default(false),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -71,6 +73,7 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
       neighborhood: '',
       city: '',
       state: '',
+      isRecurring: false,
     },
   })
 
@@ -88,6 +91,7 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
           neighborhood: client.neighborhood ?? '',
           city: client.city ?? '',
           state: client.state ?? '',
+          isRecurring: client.isRecurring ?? false,
         })
       } else {
         form.reset()
@@ -124,6 +128,7 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
       neighborhood: values.neighborhood || undefined,
       city: values.city || undefined,
       state: values.state || undefined,
+      isRecurring: values.isRecurring,
     }
 
     if (isEditing && client) {
@@ -196,6 +201,15 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
           <Text size="xs" c="dimmed">
             * Campos obrigatórios
           </Text>
+
+          <Divider label="Configurações" labelPosition="left" mt="xs" />
+
+          <Switch
+            label="Cliente recorrente"
+            description="Marca o cliente como recorrente na lista"
+            checked={form.values.isRecurring}
+            onChange={(e) => form.setFieldValue('isRecurring', e.currentTarget.checked)}
+          />
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose} disabled={isPending}>

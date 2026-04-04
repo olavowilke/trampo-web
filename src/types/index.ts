@@ -67,6 +67,7 @@ export interface Client {
   neighborhood?: string
   city?: string
   state?: string
+  isRecurring: boolean
   createdAt: string
   activeServicesCount: number
 }
@@ -81,13 +82,14 @@ export interface Service {
   visitNotes?: string
   quoteValue?: number
   quoteNotes?: string
+  quoteFileUrl?: string | null
   scheduledAt?: string
   completedAt?: string
   completionNotes?: string
   paidAt?: string
   paymentMethod?: PaymentMethod
   nfIssued: boolean
-  nfFileUrl?: string
+  nfFileUrl?: string | null
   createdAt: string
 }
 
