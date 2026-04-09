@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Drawer,
   TextInput,
@@ -59,6 +59,7 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
   const createClient = useCreateClient()
   const updateClient = useUpdateClient()
   const isPending = createClient.isPending || updateClient.isPending
+  const [loadingCep, setLoadingCep] = useState(false)
 
   const form = useForm<FormValues>({
     validate: zodResolver(schema),
@@ -103,17 +104,22 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
   async function handleZipCodeBlur() {
     const cep = form.values.zipCode?.replace(/\D/g, '') ?? ''
     if (cep.length !== 8) return
-    const address = await fetchAddress(cep)
-    if (!address) {
-      form.setFieldError('zipCode', 'CEP não encontrado')
-      return
+    setLoadingCep(true)
+    try {
+      const address = await fetchAddress(cep)
+      if (!address) {
+        form.setFieldError('zipCode', 'CEP não encontrado')
+        return
+      }
+      form.setValues({
+        street: address.logradouro,
+        neighborhood: address.bairro,
+        city: address.localidade,
+        state: address.uf,
+      })
+    } finally {
+      setLoadingCep(false)
     }
-    form.setValues({
-      street: address.logradouro,
-      neighborhood: address.bairro,
-      city: address.localidade,
-      state: address.uf,
-    })
   }
 
   function handleSubmit(values: FormValues) {
@@ -175,9 +181,7 @@ export function ClientFormDrawer({ opened, onClose, client }: Props) {
               maxLength={8}
               {...form.getInputProps('zipCode')}
               onBlur={handleZipCodeBlur}
-              rightSection={
-                form.values.zipCode?.length === 8 ? <Loader size="xs" /> : null
-              }
+              rightSection={loadingCep ? <Loader size="xs" /> : null}
             />
             <TextInput label="Número" placeholder="42" {...form.getInputProps('number')} />
           </Group>
