@@ -53,6 +53,27 @@ export const PaymentMethodLabel: Record<PaymentMethod, string> = {
   [PaymentMethod.BANK_TRANSFER]: 'Transferência Bancária',
 }
 
+export enum DocumentTag {
+  INVOICE = 'INVOICE',
+  QUOTE = 'QUOTE',
+  CONTRACT = 'CONTRACT',
+  OTHER = 'OTHER',
+}
+
+export const DocumentTagLabel: Record<DocumentTag, string> = {
+  [DocumentTag.INVOICE]: 'NF',
+  [DocumentTag.QUOTE]: 'Orçamento',
+  [DocumentTag.CONTRACT]: 'Contrato',
+  [DocumentTag.OTHER]: 'Outros',
+}
+
+export const DocumentTagColor: Record<DocumentTag, string> = {
+  [DocumentTag.INVOICE]: 'green',
+  [DocumentTag.QUOTE]: 'blue',
+  [DocumentTag.CONTRACT]: 'violet',
+  [DocumentTag.OTHER]: 'gray',
+}
+
 // ── Modelos ────────────────────────────────────────────────────────────────
 
 export interface Client {
@@ -82,14 +103,22 @@ export interface Service {
   visitNotes?: string
   quoteValue?: number
   quoteNotes?: string
-  quoteFileUrl?: string | null
   scheduledAt?: string
   completedAt?: string
   completionNotes?: string
   paidAt?: string
   paymentMethod?: PaymentMethod
   nfIssued: boolean
-  nfFileUrl?: string | null
+  documentCount: number
+  createdAt: string
+}
+
+export interface Document {
+  id: string
+  tag: DocumentTag
+  fileName: string
+  mimeType: string
+  sizeBytes: number
   createdAt: string
 }
 

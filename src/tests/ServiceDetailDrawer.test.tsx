@@ -11,7 +11,7 @@ import { ServiceDetailDrawer } from '../components/services/ServiceDetailDrawer'
 import { ServicesPage } from '../pages/services/ServicesPage'
 import { renderWithProviders } from './helpers/renderWithProviders'
 import type { Service } from '../types'
-import { ServiceStatus, PaymentMethod } from '../types'
+import { ServiceStatus, PaymentMethod, PaymentMethodLabel, SERVICE_STATUS_ORDER } from '../types'
 import { server } from './mocks/server'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -232,8 +232,10 @@ describe('ServiceDetailDrawer', () => {
   })
 
   // ── Field visibility by status ──────────────────────────────────────────────
+  // The drawer is a single editable form: every field is always rendered so the
+  // user can fill/correct any of them regardless of the current status.
 
-  describe('field visibility by status', () => {
+  describe('fields rendered (all fields are always editable)', () => {
     it('shows visitDate and visitNotes at TECHNICAL_VISIT', () => {
       renderDrawer(makeService({ status: ServiceStatus.TECHNICAL_VISIT }))
 
@@ -241,19 +243,7 @@ describe('ServiceDetailDrawer', () => {
       expect(screen.getByLabelText('Notas da visita')).toBeInTheDocument()
     })
 
-    it('does NOT show scheduledAt at TECHNICAL_VISIT', () => {
-      renderDrawer(makeService({ status: ServiceStatus.TECHNICAL_VISIT }))
-
-      expect(screen.queryByLabelText('Data agendada')).not.toBeInTheDocument()
-    })
-
-    it('does NOT show scheduledAt at QUOTE_PENDING', () => {
-      renderDrawer(makeService({ status: ServiceStatus.QUOTE_PENDING }))
-
-      expect(screen.queryByLabelText('Data agendada')).not.toBeInTheDocument()
-    })
-
-    it('shows scheduledAt at QUOTE_APPROVED so user can fill before advancing', () => {
+    it('shows scheduledAt at QUOTE_APPROVED', () => {
       renderDrawer(makeService({ status: ServiceStatus.QUOTE_APPROVED }))
 
       expect(screen.getByLabelText('Data agendada')).toBeInTheDocument()
@@ -266,12 +256,6 @@ describe('ServiceDetailDrawer', () => {
       expect(screen.getByLabelText('Notas de conclusão')).toBeInTheDocument()
     })
 
-    it('does NOT show completedAt at QUOTE_APPROVED', () => {
-      renderDrawer(makeService({ status: ServiceStatus.QUOTE_APPROVED }))
-
-      expect(screen.queryByLabelText('Data de conclusão')).not.toBeInTheDocument()
-    })
-
     it('shows paidAt and paymentMethod at EXECUTION_COMPLETED', () => {
       renderDrawer(makeService({ status: ServiceStatus.EXECUTION_COMPLETED }))
 
@@ -279,107 +263,45 @@ describe('ServiceDetailDrawer', () => {
       expect(screen.getAllByLabelText('Método de pagamento').length).toBeGreaterThan(0)
     })
 
-    it('does NOT show paidAt at EXECUTION_SCHEDULED', () => {
-      renderDrawer(makeService({ status: ServiceStatus.EXECUTION_SCHEDULED }))
-
-      expect(screen.queryByLabelText('Data do pagamento')).not.toBeInTheDocument()
-    })
-  })
-
-  // ── Nota Fiscal visibility ──────────────────────────────────────────────────
-
-  describe('Nota Fiscal section visibility', () => {
-    const earlyStatuses = [
-      ServiceStatus.TECHNICAL_VISIT,
-      ServiceStatus.QUOTE_PENDING,
-      ServiceStatus.QUOTE_APPROVED,
-      ServiceStatus.EXECUTION_SCHEDULED,
-    ]
-
-    earlyStatuses.forEach((status) => {
-      it(`does NOT show Nota Fiscal section at ${status}`, () => {
+    // Every field is present regardless of the status the service is currently in.
+    SERVICE_STATUS_ORDER.forEach((status) => {
+      it(`renders all editable fields at ${status}`, () => {
         renderDrawer(makeService({ status }))
 
-        expect(screen.queryByText('Nota Fiscal')).not.toBeInTheDocument()
-      })
-    })
-
-    it('shows Nota Fiscal section at EXECUTION_COMPLETED', () => {
-      renderDrawer(makeService({ status: ServiceStatus.EXECUTION_COMPLETED }))
-
-      expect(screen.getByText('Nota Fiscal')).toBeInTheDocument()
-    })
-
-    it('shows Nota Fiscal section at PAID', () => {
-      renderDrawer(makeService({ status: ServiceStatus.PAID }))
-
-      expect(screen.getByText('Nota Fiscal')).toBeInTheDocument()
-    })
-  })
-
-  // ── Advance validation ──────────────────────────────────────────────────────
-
-  describe('advance validation', () => {
-    it('blocks advance to QUOTE_PENDING and shows notification when visitDate is missing', async () => {
-      const user = userEvent.setup()
-      renderDrawer(makeService({ status: ServiceStatus.TECHNICAL_VISIT }))
-
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Informe a data da visita')).toBeInTheDocument()
-      })
-    })
-
-    it('blocks advance to QUOTE_APPROVED and shows notification when quoteValue is missing', async () => {
-      const user = userEvent.setup()
-      renderDrawer(makeService({ status: ServiceStatus.QUOTE_PENDING }))
-
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Informe o valor do orçamento')).toBeInTheDocument()
-      })
-    })
-
-    it('blocks advance to EXECUTION_SCHEDULED and shows notification when scheduledAt is missing', async () => {
-      const user = userEvent.setup()
-      renderDrawer(makeService({ status: ServiceStatus.QUOTE_APPROVED }))
-
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Informe a data agendada')).toBeInTheDocument()
-      })
-    })
-
-    it('blocks advance to EXECUTION_COMPLETED and shows notification when completedAt is missing', async () => {
-      const user = userEvent.setup()
-      renderDrawer(makeService({ status: ServiceStatus.EXECUTION_SCHEDULED }))
-
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Informe a data de conclusão')).toBeInTheDocument()
-      })
-    })
-
-    it('blocks advance to PAID and shows notification when paidAt or paymentMethod is missing', async () => {
-      const user = userEvent.setup()
-      renderDrawer(makeService({ status: ServiceStatus.EXECUTION_COMPLETED }))
-
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Informe a data e o método de pagamento')).toBeInTheDocument()
+        expect(screen.getAllByLabelText('Status').length).toBeGreaterThan(0)
+        expect(screen.getByLabelText('Data da visita')).toBeInTheDocument()
+        expect(screen.getByLabelText('Notas da visita')).toBeInTheDocument()
+        expect(screen.getByLabelText('Valor do orçamento (R$)')).toBeInTheDocument()
+        expect(screen.getByLabelText('Notas do orçamento')).toBeInTheDocument()
+        expect(screen.getByLabelText('Data agendada')).toBeInTheDocument()
+        expect(screen.getByLabelText('Data de conclusão')).toBeInTheDocument()
+        expect(screen.getByLabelText('Notas de conclusão')).toBeInTheDocument()
+        expect(screen.getByLabelText('Data do pagamento')).toBeInTheDocument()
+        expect(screen.getAllByLabelText('Método de pagamento').length).toBeGreaterThan(0)
       })
     })
   })
 
-  // ── Advance success ─────────────────────────────────────────────────────────
+  // ── Save success ────────────────────────────────────────────────────────────
 
-  describe('advance success', () => {
-    it('calls onClose after successfully advancing status', async () => {
+  describe('save', () => {
+    it('calls onClose after successfully saving', async () => {
+      server.use(
+        http.put(
+          'http://localhost:8080/api/clients/:clientId/services/:serviceId',
+          () =>
+            HttpResponse.json({
+              id: 'service-1',
+              clientId: 'client-1',
+              clientName: 'Maria Souza',
+              description: 'Troca de disjuntor',
+              nfIssued: false,
+              createdAt: '2024-01-01T00:00:00',
+              status: 'TECHNICAL_VISIT',
+            }),
+        ),
+      )
+
       const user = userEvent.setup()
       const onClose = vi.fn()
 
@@ -395,25 +317,50 @@ describe('ServiceDetailDrawer', () => {
         />,
       )
 
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
 
       await waitFor(() => {
         expect(onClose).toHaveBeenCalledTimes(1)
       })
     })
+
+    it('shows a success notification after saving', async () => {
+      server.use(
+        http.put(
+          'http://localhost:8080/api/clients/:clientId/services/:serviceId',
+          () =>
+            HttpResponse.json({
+              id: 'service-1',
+              clientId: 'client-1',
+              clientName: 'Maria Souza',
+              description: 'Troca de disjuntor',
+              nfIssued: false,
+              createdAt: '2024-01-01T00:00:00',
+              status: 'TECHNICAL_VISIT',
+            }),
+        ),
+      )
+
+      const user = userEvent.setup()
+      renderDrawer(makeService({ status: ServiceStatus.TECHNICAL_VISIT }))
+
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText('Serviço atualizado')).toBeInTheDocument()
+      })
+    })
   })
 
-  // ── PATCH body correctness ─────────────────────────────────────────────────
+  // ── PUT body correctness ────────────────────────────────────────────────────
 
-  describe('PATCH body when advancing status', () => {
-    it('includes visitDate (non-null) when service has visitDate set', async () => {
-      let capturedBody: Record<string, unknown> | null = null
-
+  describe('PUT body when saving', () => {
+    function capturePutBody(ref: { body: Record<string, unknown> | null }) {
       server.use(
-        http.patch(
-          'http://localhost:8080/api/clients/:clientId/services/:serviceId/status',
+        http.put(
+          'http://localhost:8080/api/clients/:clientId/services/:serviceId',
           async ({ request }) => {
-            capturedBody = (await request.json()) as Record<string, unknown>
+            ref.body = (await request.json()) as Record<string, unknown>
             return HttpResponse.json({
               id: 'service-1',
               clientId: 'client-1',
@@ -421,13 +368,31 @@ describe('ServiceDetailDrawer', () => {
               description: 'Troca de disjuntor',
               nfIssued: false,
               createdAt: '2024-01-01T00:00:00',
-              status: 'QUOTE_PENDING',
-              visitDate: '2024-06-15T10:30:00',
-              visitNotes: null,
+              status: 'TECHNICAL_VISIT',
             })
           },
         ),
       )
+    }
+
+    it('always includes the current status', async () => {
+      const ref: { body: Record<string, unknown> | null } = { body: null }
+      capturePutBody(ref)
+
+      const user = userEvent.setup()
+      renderDrawer(makeService({ status: ServiceStatus.QUOTE_PENDING }))
+
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
+
+      await waitFor(() => {
+        expect(ref.body).not.toBeNull()
+        expect(ref.body!.status).toBe('QUOTE_PENDING')
+      })
+    })
+
+    it('includes visitDate (non-null string) when service has visitDate set', async () => {
+      const ref: { body: Record<string, unknown> | null } = { body: null }
+      capturePutBody(ref)
 
       const user = userEvent.setup()
       renderDrawer(
@@ -437,38 +402,19 @@ describe('ServiceDetailDrawer', () => {
         }),
       )
 
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
 
       await waitFor(() => {
-        expect(capturedBody).not.toBeNull()
-        expect(capturedBody!.visitDate).toBeDefined()
-        expect(capturedBody!.visitDate).not.toBeNull()
-        expect(typeof capturedBody!.visitDate).toBe('string')
+        expect(ref.body).not.toBeNull()
+        expect(ref.body!.visitDate).toBeDefined()
+        expect(ref.body!.visitDate).not.toBeNull()
+        expect(typeof ref.body!.visitDate).toBe('string')
       })
     })
 
-    it('includes visitNotes (non-null) when service has visitNotes set', async () => {
-      let capturedBody: Record<string, unknown> | null = null
-
-      server.use(
-        http.patch(
-          'http://localhost:8080/api/clients/:clientId/services/:serviceId/status',
-          async ({ request }) => {
-            capturedBody = (await request.json()) as Record<string, unknown>
-            return HttpResponse.json({
-              id: 'service-1',
-              clientId: 'client-1',
-              clientName: 'Maria Souza',
-              description: 'Troca de disjuntor',
-              nfIssued: false,
-              createdAt: '2024-01-01T00:00:00',
-              status: 'QUOTE_PENDING',
-              visitDate: '2024-06-15T10:30:00',
-              visitNotes: 'Painel com sobrecarga detectada',
-            })
-          },
-        ),
-      )
+    it('includes visitNotes when service has visitNotes set', async () => {
+      const ref: { body: Record<string, unknown> | null } = { body: null }
+      capturePutBody(ref)
 
       const user = userEvent.setup()
       renderDrawer(
@@ -479,81 +425,42 @@ describe('ServiceDetailDrawer', () => {
         }),
       )
 
-      await user.click(screen.getByRole('button', { name: /Avançar/i }))
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
 
       await waitFor(() => {
-        expect(capturedBody).not.toBeNull()
-        expect(capturedBody!.visitNotes).toBe('Painel com sobrecarga detectada')
+        expect(ref.body).not.toBeNull()
+        expect(ref.body!.visitNotes).toBe('Painel com sobrecarga detectada')
       })
     })
 
     it('does NOT include visitDate key when visitDate is absent from service', async () => {
-      // visitDate is required to advance from TECHNICAL_VISIT — this tests buildPayload
-      // does not add a null/undefined visitDate key when the field is not set.
-      // (Advancing would be blocked by frontend validation; we test payload via Voltar.)
-      let capturedBody: Record<string, unknown> | null = null
-
-      server.use(
-        http.patch(
-          'http://localhost:8080/api/clients/:clientId/services/:serviceId/status',
-          async ({ request }) => {
-            capturedBody = (await request.json()) as Record<string, unknown>
-            return HttpResponse.json({
-              id: 'service-1',
-              clientId: 'client-1',
-              clientName: 'Maria Souza',
-              description: 'Troca de disjuntor',
-              nfIssued: false,
-              createdAt: '2024-01-01T00:00:00',
-              status: 'TECHNICAL_VISIT',
-            })
-          },
-        ),
-      )
+      const ref: { body: Record<string, unknown> | null } = { body: null }
+      capturePutBody(ref)
 
       const user = userEvent.setup()
-      // Start at QUOTE_PENDING so we can click Voltar (no visitDate in state)
       renderDrawer(makeService({ status: ServiceStatus.QUOTE_PENDING }))
 
-      await user.click(screen.getByRole('button', { name: /Voltar/i }))
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
 
       await waitFor(() => {
-        expect(capturedBody).not.toBeNull()
-        // visitDate should not be a key in the payload (no null sent)
-        expect('visitDate' in capturedBody!).toBe(false)
+        expect(ref.body).not.toBeNull()
+        // buildPayload omits the key entirely (no null sent) when unset
+        expect('visitDate' in ref.body!).toBe(false)
       })
     })
 
     it('does NOT include visitNotes key when visitNotes is empty', async () => {
-      let capturedBody: Record<string, unknown> | null = null
-
-      server.use(
-        http.patch(
-          'http://localhost:8080/api/clients/:clientId/services/:serviceId/status',
-          async ({ request }) => {
-            capturedBody = (await request.json()) as Record<string, unknown>
-            return HttpResponse.json({
-              id: 'service-1',
-              clientId: 'client-1',
-              clientName: 'Maria Souza',
-              description: 'Troca de disjuntor',
-              nfIssued: false,
-              createdAt: '2024-01-01T00:00:00',
-              status: 'TECHNICAL_VISIT',
-            })
-          },
-        ),
-      )
+      const ref: { body: Record<string, unknown> | null } = { body: null }
+      capturePutBody(ref)
 
       const user = userEvent.setup()
-      // At QUOTE_PENDING with no visitNotes: clicking Voltar sends a payload without visitNotes
       renderDrawer(makeService({ status: ServiceStatus.QUOTE_PENDING }))
 
-      await user.click(screen.getByRole('button', { name: /Voltar/i }))
+      await user.click(screen.getByRole('button', { name: /Salvar/i }))
 
       await waitFor(() => {
-        expect(capturedBody).not.toBeNull()
-        expect('visitNotes' in capturedBody!).toBe(false)
+        expect(ref.body).not.toBeNull()
+        expect('visitNotes' in ref.body!).toBe(false)
       })
     })
   })
@@ -580,24 +487,10 @@ describe('ServiceDetailDrawer', () => {
     })
   })
 
-  // ── Paid terminal state ─────────────────────────────────────────────────────
+  // ── PAID state ───────────────────────────────────────────────────────────────
 
-  describe('terminal PAID state', () => {
-    it('disables both Voltar and Avançar buttons at PAID', () => {
-      renderDrawer(
-        makeService({
-          status: ServiceStatus.PAID,
-          quoteValue: 500,
-          paidAt: '2024-08-01',
-          paymentMethod: PaymentMethod.PIX,
-        }),
-      )
-
-      expect(screen.getByRole('button', { name: /Voltar/i })).toBeDisabled()
-      expect(screen.getByRole('button', { name: /Concluído/i })).toBeDisabled()
-    })
-
-    it('shows total received amount at PAID', () => {
+  describe('PAID state', () => {
+    it('pre-fills payment fields when service is PAID', () => {
       renderDrawer(
         makeService({
           status: ServiceStatus.PAID,
@@ -607,7 +500,21 @@ describe('ServiceDetailDrawer', () => {
         }),
       )
 
-      expect(screen.getByText(/Total recebido/)).toBeInTheDocument()
+      // paymentMethod Select shows the localized label of the saved method
+      expect(screen.getByDisplayValue(PaymentMethodLabel[PaymentMethod.PIX])).toBeInTheDocument()
+    })
+
+    it('keeps Salvar enabled at PAID so the user can still edit', () => {
+      renderDrawer(
+        makeService({
+          status: ServiceStatus.PAID,
+          quoteValue: 500,
+          paidAt: '2024-08-01',
+          paymentMethod: PaymentMethod.PIX,
+        }),
+      )
+
+      expect(screen.getByRole('button', { name: /Salvar/i })).toBeEnabled()
     })
   })
 })
