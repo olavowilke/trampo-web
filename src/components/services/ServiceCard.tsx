@@ -1,5 +1,5 @@
 import { Card, Text, Group, Badge, ActionIcon, Stack, Menu } from '@mantine/core'
-import { IconEdit, IconTrash, IconDots, IconCurrencyReal, IconFileTypePdf } from '@tabler/icons-react'
+import { IconEdit, IconTrash, IconDots, IconCurrencyReal, IconPaperclip } from '@tabler/icons-react'
 import type { Service } from '../../types'
 import { ServiceStatusLabel, ServiceStatusColor } from '../../types'
 import { formatCurrency, formatDate } from '../../utils/formatters'
@@ -53,19 +53,27 @@ export function ServiceCard({ service, onOpen, onDelete }: Props) {
                 </Text>
               </Group>
             )}
+
+            {service.documentCount > 0 && (
+              <Group gap={4}>
+                <IconPaperclip size={13} />
+                <Text size="xs" c="dimmed">
+                  {service.documentCount}
+                </Text>
+              </Group>
+            )}
+
+            {service.nfIssued && (
+              <Badge size="xs" variant="light" color="green">
+                NF
+              </Badge>
+            )}
           </Group>
 
           {dateLine && (
             <Text size="xs" c="dimmed">
               {dateLine}
             </Text>
-          )}
-
-          {service.nfIssued && (
-            <Group gap={4}>
-              <IconFileTypePdf size={13} color="red" />
-              <Text size="xs" c="dimmed">NF anexada</Text>
-            </Group>
           )}
         </Stack>
 

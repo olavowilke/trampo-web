@@ -9,26 +9,21 @@ import {
   Textarea,
   Select,
   Divider,
-  Badge,
-  Stepper,
 } from '@mantine/core'
 import { DateTimePicker, DatePickerInput } from '@mantine/dates'
-import { IconArrowRight, IconArrowLeft } from '@tabler/icons-react'
+import { IconDeviceFloppy } from '@tabler/icons-react'
 import dayjs from 'dayjs'
 import type { Service } from '../../types'
 import {
   ServiceStatus,
   ServiceStatusLabel,
-  ServiceStatusColor,
   SERVICE_STATUS_ORDER,
   PaymentMethod,
   PaymentMethodLabel,
 } from '../../types'
-import { useUpdateServiceStatus, type UpdateStatusData } from '../../hooks/useServices'
-import { formatCurrency, formatDateTime } from '../../utils/formatters'
+import { useUpdateService, type UpdateServiceData } from '../../hooks/useServices'
 import { notifications } from '@mantine/notifications'
-import { NfUploadSection } from './NfUploadSection'
-import { QuoteFileUploadSection } from './QuoteFileUploadSection'
+import { DocumentsSection } from './DocumentsSection'
 
 interface Props {
   opened: boolean
@@ -37,34 +32,27 @@ interface Props {
   service: Service | null
 }
 
-function statusIndex(status: ServiceStatus): number {
-  return SERVICE_STATUS_ORDER.indexOf(status)
-}
-
 export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Props) {
-  const updateStatus = useUpdateServiceStatus(clientId)
+  const updateService = useUpdateService(clientId)
 
+  const [status, setStatus] = useState<ServiceStatus>(ServiceStatus.TECHNICAL_VISIT)
   const [quoteValue, setQuoteValue] = useState<number | string>('')
   const [quoteNotes, setQuoteNotes] = useState('')
 
-  // visitDate and scheduledAt are LocalDateTime — DateTimePicker gives calendar + time picker
+  // LocalDateTime no backend — DateTimePicker no front
   const [visitDate, setVisitDate] = useState<Date | null>(null)
   const [visitNotes, setVisitNotes] = useState('')
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
 
-  // completedAt and paidAt are LocalDate (date-only) on the backend
+  // LocalDate no backend — DatePickerInput no front
   const [completedAt, setCompletedAt] = useState<Date | null>(null)
   const [completionNotes, setCompletionNotes] = useState('')
   const [paidAt, setPaidAt] = useState<Date | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
 
-  // Re-populate fields whenever the drawer opens or the service changes.
-  // `opened` is intentionally in deps: the drawer may keep children mounted
-  // between opens, so without it the effect would not re-fire when the drawer
-  // re-opens carrying the same service reference (before React Query refetches).
   useEffect(() => {
     if (!service || !opened) return
-
+    setStatus(service.status)
     setQuoteValue(service.quoteValue ?? '')
     setQuoteNotes(service.quoteNotes ?? '')
     setVisitDate(service.visitDate ? dayjs(service.visitDate).toDate() : null)
@@ -78,21 +66,16 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
 
   if (!service) return null
 
-  const currentIdx = statusIndex(service.status)
-  const isTerminal = service.status === ServiceStatus.PAID
-  const canAdvance = !isTerminal
-  const canRetreat = currentIdx > 0 && !isTerminal
-
-  function buildPayload(targetStatus: ServiceStatus): UpdateStatusData {
+  function buildPayload(): UpdateServiceData {
     return {
-      targetStatus,
+      status,
       ...(typeof quoteValue === 'number' ? { quoteValue } : {}),
       ...(quoteNotes ? { quoteNotes } : {}),
-      // LocalDateTime fields: full ISO-like string without timezone
       ...(visitDate ? { visitDate: dayjs(visitDate).format('YYYY-MM-DDTHH:mm:ss') } : {}),
       ...(visitNotes ? { visitNotes } : {}),
-      ...(scheduledAt ? { scheduledAt: dayjs(scheduledAt).format('YYYY-MM-DDTHH:mm:ss') } : {}),
-      // LocalDate fields: date-only string
+      ...(scheduledAt
+        ? { scheduledAt: dayjs(scheduledAt).format('YYYY-MM-DDTHH:mm:ss') }
+        : {}),
       ...(completedAt ? { completedAt: dayjs(completedAt).format('YYYY-MM-DD') } : {}),
       ...(completionNotes ? { completionNotes } : {}),
       ...(paidAt ? { paidAt: dayjs(paidAt).format('YYYY-MM-DD') } : {}),
@@ -100,37 +83,15 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
     }
   }
 
-  function handleAdvance() {
-    const nextStatus = SERVICE_STATUS_ORDER[currentIdx + 1]
-    if (!nextStatus) return
-
-    updateStatus.mutate(
-      { serviceId: service!.id, data: buildPayload(nextStatus) },
+  function handleSave() {
+    updateService.mutate(
+      { serviceId: service!.id, data: buildPayload() },
       {
         onSuccess: () => {
           notifications.show({
-            title: 'Status atualizado',
-            message: `Avançado para ${ServiceStatusLabel[nextStatus]}`,
+            title: 'Serviço atualizado',
+            message: '',
             color: 'green',
-          })
-          onClose()
-        },
-      },
-    )
-  }
-
-  function handleRetreat() {
-    const prevStatus = SERVICE_STATUS_ORDER[currentIdx - 1]
-    if (!prevStatus) return
-
-    updateStatus.mutate(
-      { serviceId: service!.id, data: buildPayload(prevStatus) },
-      {
-        onSuccess: () => {
-          notifications.show({
-            title: 'Status atualizado',
-            message: `Retornado para ${ServiceStatusLabel[prevStatus]}`,
-            color: 'blue',
           })
           onClose()
         },
@@ -143,185 +104,126 @@ export function ServiceDetailDrawer({ opened, onClose, clientId, service }: Prop
     label: PaymentMethodLabel[m],
   }))
 
+  const statusOptions = SERVICE_STATUS_ORDER.map((s) => ({
+    value: s,
+    label: ServiceStatusLabel[s],
+  }))
+
   return (
     <Drawer
       opened={opened}
       onClose={onClose}
       position="right"
       size="md"
-      title={<Text fw={700} size="lg" component="span">Detalhes do serviço</Text>}
+      title={
+        <Text fw={700} size="lg" component="span">
+          Detalhes do serviço
+        </Text>
+      }
     >
       <Stack gap="md">
-        {/* Description */}
         <Text fw={600}>{service.description}</Text>
-        <Badge color={ServiceStatusColor[service.status]} variant="light" size="lg">
-          {ServiceStatusLabel[service.status]}
-        </Badge>
 
-        {/* Stepper visual */}
-        <Stepper
-          active={currentIdx}
-          size="xs"
-          orientation="vertical"
-          styles={{ stepLabel: { fontSize: 12 } }}
-        >
-          {SERVICE_STATUS_ORDER.map((s) => (
-            <Stepper.Step
-              key={s}
-              label={ServiceStatusLabel[s]}
-              color={ServiceStatusColor[s]}
-            />
-          ))}
-        </Stepper>
+        <Select
+          label="Status"
+          value={status}
+          onChange={(v) => v && setStatus(v as ServiceStatus)}
+          data={statusOptions}
+          allowDeselect={false}
+        />
 
         <Divider />
-
         <Text fw={600}>Dados do serviço</Text>
 
-        {/* Visita Técnica fields — always visible (idx >= 0) */}
-        {currentIdx >= 0 && (
-          <>
-            <DateTimePicker
-              label="Data da visita"
-              placeholder="Selecione"
-              value={visitDate}
-              onChange={setVisitDate}
-              clearable
-            />
-            <Textarea
-              label="Notas da visita"
-              placeholder="Observações (opcional)"
-              autosize
-              minRows={2}
-              value={visitNotes}
-              onChange={(e) => setVisitNotes(e.currentTarget.value)}
-            />
-          </>
-        )}
+        <DateTimePicker
+          label="Data da visita"
+          placeholder="Selecione"
+          value={visitDate}
+          onChange={setVisitDate}
+          clearable
+        />
+        <Textarea
+          label="Notas da visita"
+          placeholder="Observações (opcional)"
+          autosize
+          minRows={2}
+          value={visitNotes}
+          onChange={(e) => setVisitNotes(e.currentTarget.value)}
+        />
 
-        {/* Orçamento fields — from QUOTE_PENDING (idx >= 1) */}
-        {currentIdx >= 1 && (
-          <>
-            <NumberInput
-              label="Valor do orçamento (R$)"
-              placeholder="0,00"
-              min={0}
-              decimalScale={2}
-              decimalSeparator=","
-              thousandSeparator="."
-              value={quoteValue}
-              onChange={setQuoteValue}
-            />
-            <Textarea
-              label="Notas do orçamento"
-              placeholder="Detalhes (opcional)"
-              autosize
-              minRows={2}
-              value={quoteNotes}
-              onChange={(e) => setQuoteNotes(e.currentTarget.value)}
-            />
-            <Divider label="PDF do Orçamento" labelPosition="left" />
-            <QuoteFileUploadSection clientId={clientId} service={service} />
-          </>
-        )}
+        <NumberInput
+          label="Valor do orçamento (R$)"
+          placeholder="0,00"
+          min={0}
+          decimalScale={2}
+          decimalSeparator=","
+          thousandSeparator="."
+          value={quoteValue}
+          onChange={setQuoteValue}
+        />
+        <Textarea
+          label="Notas do orçamento"
+          placeholder="Detalhes (opcional)"
+          autosize
+          minRows={2}
+          value={quoteNotes}
+          onChange={(e) => setQuoteNotes(e.currentTarget.value)}
+        />
 
-        {/* Agendamento field — from QUOTE_APPROVED (idx >= 2) so the user
-            can fill the date before advancing to EXECUTION_SCHEDULED */}
-        {currentIdx >= 2 && (
-          <DateTimePicker
-            label="Data agendada"
-            placeholder="Selecione"
-            value={scheduledAt}
-            onChange={setScheduledAt}
-            clearable
-          />
-        )}
+        <DateTimePicker
+          label="Data agendada"
+          placeholder="Selecione"
+          value={scheduledAt}
+          onChange={setScheduledAt}
+          clearable
+        />
 
-        {/* Conclusão fields — from EXECUTION_SCHEDULED (idx >= 3) */}
-        {currentIdx >= 3 && (
-          <>
-            <DatePickerInput
-              label="Data de conclusão"
-              placeholder="Selecione"
-              value={completedAt}
-              onChange={setCompletedAt}
-              clearable
-            />
-            <Textarea
-              label="Notas de conclusão"
-              placeholder="Observações (opcional)"
-              autosize
-              minRows={2}
-              value={completionNotes}
-              onChange={(e) => setCompletionNotes(e.currentTarget.value)}
-            />
-          </>
-        )}
+        <DatePickerInput
+          label="Data de conclusão"
+          placeholder="Selecione"
+          value={completedAt}
+          onChange={setCompletedAt}
+          clearable
+        />
+        <Textarea
+          label="Notas de conclusão"
+          placeholder="Observações (opcional)"
+          autosize
+          minRows={2}
+          value={completionNotes}
+          onChange={(e) => setCompletionNotes(e.currentTarget.value)}
+        />
 
-        {/* Pagamento fields — from EXECUTION_COMPLETED (idx >= 4) */}
-        {currentIdx >= 4 && (
-          <>
-            <DatePickerInput
-              label="Data do pagamento"
-              placeholder="Selecione"
-              value={paidAt}
-              onChange={setPaidAt}
-              clearable
-            />
-            <Select
-              label="Método de pagamento"
-              placeholder="Selecione"
-              data={paymentOptions}
-              value={paymentMethod}
-              onChange={setPaymentMethod}
-            />
-          </>
-        )}
-
-        {/* Summary for paid */}
-        {isTerminal && service.quoteValue != null && (
-          <Text size="sm" c="green" fw={600}>
-            Total recebido: {formatCurrency(service.quoteValue)}
-          </Text>
-        )}
-        {service.paidAt && (
-          <Text size="xs" c="dimmed">
-            Pago em: {formatDateTime(service.paidAt)}
-          </Text>
-        )}
-
-        {/* NF Upload — only from EXECUTION_COMPLETED (idx >= 4) */}
-        {currentIdx >= 4 && (
-          <>
-            <Divider label="Nota Fiscal" labelPosition="left" />
-            <NfUploadSection clientId={clientId} service={service} />
-          </>
-        )}
+        <DatePickerInput
+          label="Data do pagamento"
+          placeholder="Selecione"
+          value={paidAt}
+          onChange={setPaidAt}
+          clearable
+        />
+        <Select
+          label="Método de pagamento"
+          placeholder="Selecione"
+          data={paymentOptions}
+          value={paymentMethod}
+          onChange={setPaymentMethod}
+          clearable
+        />
 
         <Divider />
+        <DocumentsSection clientId={clientId} serviceId={service.id} />
 
-        {/* Actions */}
-        <Group justify="space-between">
-          <Button
-            variant="light"
-            color="gray"
-            leftSection={<IconArrowLeft size={16} />}
-            onClick={handleRetreat}
-            disabled={!canRetreat}
-            loading={updateStatus.isPending}
-          >
-            Voltar
+        <Divider />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Cancelar
           </Button>
-
           <Button
-            rightSection={<IconArrowRight size={16} />}
-            onClick={handleAdvance}
-            disabled={!canAdvance}
-            loading={updateStatus.isPending}
+            leftSection={<IconDeviceFloppy size={16} />}
+            onClick={handleSave}
+            loading={updateService.isPending}
           >
-            {canAdvance
-              ? `Avançar para ${ServiceStatusLabel[SERVICE_STATUS_ORDER[currentIdx + 1]]}`
-              : 'Concluído'}
+            Salvar
           </Button>
         </Group>
       </Stack>

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import type { AxiosError } from 'axios'
 import api from '../lib/api'
-import type { Service, PageResponse, ServiceStatus, ApiError } from '../types'
+import type { Service, PageResponse, ServiceStatus, ApiError, PaymentMethod } from '../types'
 
 const SERVICES_KEY = 'services'
 
@@ -18,17 +18,18 @@ export interface CreateServiceData {
   description: string
 }
 
-export interface UpdateStatusData {
-  targetStatus: ServiceStatus
-  quoteValue?: number
-  quoteNotes?: string
+export interface UpdateServiceData {
+  description?: string
+  status?: ServiceStatus
   visitDate?: string
   visitNotes?: string
+  quoteValue?: number
+  quoteNotes?: string
   scheduledAt?: string
   completedAt?: string
   completionNotes?: string
   paidAt?: string
-  paymentMethod?: string
+  paymentMethod?: PaymentMethod | string
 }
 
 // ── Queries ──────────────────────────────────────────────────────────────────
@@ -72,20 +73,20 @@ export function useCreateService(clientId: string) {
   })
 }
 
-export function useUpdateServiceStatus(clientId: string) {
+export function useUpdateService(clientId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ serviceId, data }: { serviceId: string; data: UpdateStatusData }) =>
+    mutationFn: ({ serviceId, data }: { serviceId: string; data: UpdateServiceData }) =>
       api
-        .patch<Service>(`/api/clients/${clientId}/services/${serviceId}/status`, data)
+        .put<Service>(`/api/clients/${clientId}/services/${serviceId}`, data)
         .then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SERVICES_KEY, clientId] })
     },
     onError: (error: AxiosError<ApiError>) => {
       notifications.show({
-        title: 'Erro ao atualizar status',
-        message: extractMessage(error, 'Transição de status inválida'),
+        title: 'Erro ao atualizar serviço',
+        message: extractMessage(error, 'Não foi possível atualizar o serviço'),
         color: 'red',
       })
     },
